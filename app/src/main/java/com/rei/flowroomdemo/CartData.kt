@@ -14,6 +14,17 @@ data class CartData(
 ) {
 }
 
+fun CartData.toLinear() = CartDataLinear(
+    id, name, qty
+)
+
+data class CartDataLinear(
+    val id: Int,
+    val name: String,
+    var qty: Int = 0,
+) {
+}
+
 class CartViewHolder(itemView: View) : ViewHolder(itemView) {
     val name: TextView = itemView.findViewById(R.id.tvMaterial)
     val plus: ImageView = itemView.findViewById(R.id.plus)
