@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.room.Room
 import com.afollestad.recyclical.datasource.dataSourceTypedOf
 import com.afollestad.recyclical.setup
@@ -15,8 +16,12 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
+    var isGrid = true
     private val binding by lazy {
         ActivityMainBinding.inflate(layoutInflater)
+    }
+    val grid by lazy {
+        GridLayoutManager(this@MainActivity, 2)
     }
     private val localDB by lazy {
         provideDatabase(this)
@@ -36,7 +41,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.rvData.setup {
             withDataSource(data)
-            withLayoutManager(GridLayoutManager(this@MainActivity, 2))
+            withLayoutManager(grid)
             withItem<CartData, CartViewHolder>(R.layout.adapter_cart) {
                 onBind(::CartViewHolder) { _, item ->
                     name.text = item.name
@@ -48,6 +53,13 @@ class MainActivity : AppCompatActivity() {
                         vm.update(localDB, item.id, item.qty - 1)
                     }
                 }
+            }
+        }
+        binding.cartIcon.setOnClickListener {
+            if (grid.spanCount == 1) {
+                grid.spanCount = 2
+            } else {
+                grid.spanCount = 1
             }
         }
         lifecycleScope.launch {
