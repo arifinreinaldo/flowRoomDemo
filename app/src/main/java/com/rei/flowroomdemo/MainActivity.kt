@@ -7,10 +7,8 @@ import android.os.Bundle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.room.Room
 import com.afollestad.recyclical.datasource.dataSourceOf
-import com.afollestad.recyclical.datasource.dataSourceTypedOf
 import com.afollestad.recyclical.setup
 import com.afollestad.recyclical.withItem
 import com.google.zxing.integration.android.IntentIntegrator
@@ -19,12 +17,16 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import android.widget.Toast
 
-import com.google.zxing.integration.android.IntentResult
 import com.journeyapps.barcodescanner.CaptureActivity
 import android.view.View
+import androidx.lifecycle.Observer
 
 import com.journeyapps.barcodescanner.DecoratedBarcodeView
+import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import java.io.File
 
+const val URL_SQLITE = "https://store3.gofile.io/download/a4f6f10d-02c0-4b6b-95cd-4c5290b8bb3a/room.sqlite"
 
 class MainActivity : AppCompatActivity() {
     var isGrid = true
@@ -46,6 +48,9 @@ class MainActivity : AppCompatActivity() {
 
     val vm by lazy {
         ViewModelProvider(this).get(MainViewModel::class.java)
+    }
+    val cache by lazy {
+        File(cacheDir, "room.sqlite")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,24 +94,36 @@ class MainActivity : AppCompatActivity() {
             }
             redrawLayout(backup)
         }
-        lifecycleScope.launch {
-            localDB.cartDao().getCart().collect { cart ->
-                binding.cartCount.text = cart.size.toString()
-                val list = mutableListOf<CartData>()
-                sourceData.forEach { menu ->
-                    cart.find {
-                        it.id == menu.id
-                    }?.apply {
-                        list.add(menu.copy(qty = this.qty))
-                    } ?: run {
-                        list.add(menu)
+        vm.getFile(
+            provideAPI(),
+            URL_SQLITE,
+            cache
+        )
+        vm.message.observe(this, Observer {
+            showToast(it)
+            if (cache.exists()) {
+                lifecycleScope.launch {
+                    localDB.cartDao().getCart().collect { cart ->
+                        binding.cartCount.text = cart.size.toString()
+                        val list = mutableListOf<CartData>()
+                        sourceData.forEach { menu ->
+                            cart.find {
+                                it.id == menu.id
+                            }?.apply {
+                                list.add(menu.copy(qty = this.qty))
+                            } ?: run {
+                                list.add(menu)
+                            }
+                        }
+                        backup.clear()
+                        backup.addAll(list)
+                        redrawLayout(list)
                     }
                 }
-                backup.clear()
-                backup.addAll(list)
-                redrawLayout(list)
             }
-        }
+        })
+
+
         binding.scan.setOnClickListener {
             IntentIntegrator(this).apply {
                 captureActivity = PortraitActivity::class.java
@@ -150,8 +167,20 @@ class MainActivity : AppCompatActivity() {
         Room.databaseBuilder(
             context,
             LocalDB::class.java,
-            "transdb"
-        ).build()
+            "room.db"
+        ).createFromFile(cache).fallbackToDestructiveMigration().build()
+//        Room.databaseBuilder(
+//            context,
+//            LocalDB::class.java,
+//            "room.db"
+//        ).createFromAsset("room.sqlite").fallbackToDestructiveMigration().build()
+
+    fun provideOkHttp() = OkHttpClient.Builder().build()
+
+    fun provideRetrofit() =
+        Retrofit.Builder().client(provideOkHttp()).baseUrl("http://www.africau.edu").build()
+
+    fun provideAPI() = provideRetrofit().create(Repository::class.java)
 }
 
 class PortraitActivity() : CaptureActivity() {
