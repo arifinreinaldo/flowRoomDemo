@@ -11,22 +11,18 @@ import androidx.room.Room
 import com.afollestad.recyclical.datasource.dataSourceOf
 import com.afollestad.recyclical.setup
 import com.afollestad.recyclical.withItem
-import com.google.zxing.integration.android.IntentIntegrator
 import com.rei.flowroomdemo.databinding.ActivityMainBinding
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import android.widget.Toast
 
-import com.journeyapps.barcodescanner.CaptureActivity
-import android.view.View
 import androidx.lifecycle.Observer
 
-import com.journeyapps.barcodescanner.DecoratedBarcodeView
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import java.io.File
 
-const val URL_SQLITE = "https://store3.gofile.io/download/a4f6f10d-02c0-4b6b-95cd-4c5290b8bb3a/room.sqlite"
+const val URL_SQLITE =
+    "https://store3.gofile.io/download/a4f6f10d-02c0-4b6b-95cd-4c5290b8bb3a/room.sqlite"
 
 class MainActivity : AppCompatActivity() {
     var isGrid = true
@@ -62,26 +58,12 @@ class MainActivity : AppCompatActivity() {
             withLayoutManager(grid)
             withItem<CartData, CartViewHolder>(R.layout.adapter_cart) {
                 onBind(::CartViewHolder) { _, item ->
-                    name.text = item.name
-                    qty.text = item.qty.toString()
-                    plus.setOnClickListener {
-                        vm.update(localDB, item.id, item.qty + 1)
-                    }
-                    minus.setOnClickListener {
-                        vm.update(localDB, item.id, item.qty - 1)
-                    }
+                    populateData(this, item.toLinear())
                 }
             }
             withItem<CartDataLinear, CartViewHolder>(R.layout.adapter_cart_linear) {
                 onBind(::CartViewHolder) { _, item ->
-                    name.text = item.name
-                    qty.text = item.qty.toString()
-                    plus.setOnClickListener {
-                        vm.update(localDB, item.id, item.qty + 1)
-                    }
-                    minus.setOnClickListener {
-                        vm.update(localDB, item.id, item.qty - 1)
-                    }
+                    populateData(this, item)
                 }
             }
 
@@ -125,30 +107,23 @@ class MainActivity : AppCompatActivity() {
 
 
         binding.scan.setOnClickListener {
-            IntentIntegrator(this).apply {
-                captureActivity = PortraitActivity::class.java
-                setPrompt("Scan Kartu Bermain Anda")
-                setBeepEnabled(true)
-                setOrientationLocked(false)
-                setBarcodeImageEnabled(true)
-                initiateScan()
+            startActivity(Intent(this, ScannerActivity::class.java))
+        }
+    }
+
+    private fun populateData(cartViewHolder: CartViewHolder, item: CartDataLinear) {
+        cartViewHolder.apply {
+            name.text = item.name
+            qty.text = item.qty.toString()
+            plus.setOnClickListener {
+                vm.update(localDB, item.id, item.qty + 1)
+            }
+            minus.setOnClickListener {
+                vm.update(localDB, item.id, item.qty - 1)
             }
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        val result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
-        if (result != null) {
-            if (result.contents == null) {
-                Toast.makeText(this, "Cancelled", Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(this, "Scanned: " + result.contents, Toast.LENGTH_LONG).show()
-            }
-        } else {
-            super.onActivityResult(requestCode, resultCode, data)
-        }
-    }
 
     fun redrawLayout(list: MutableList<CartData>) {
         data.clear()
@@ -164,16 +139,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun provideDatabase(context: Context) =
-        Room.databaseBuilder(
-            context,
-            LocalDB::class.java,
-            "room.db"
-        ).createFromFile(cache).fallbackToDestructiveMigration().build()
 //        Room.databaseBuilder(
 //            context,
 //            LocalDB::class.java,
 //            "room.db"
-//        ).createFromAsset("room.sqlite").fallbackToDestructiveMigration().build()
+//        ).createFromFile(cache).fallbackToDestructiveMigration().build()
+        Room.databaseBuilder(
+            context,
+            LocalDB::class.java,
+            "room.db"
+        ).createFromAsset("room.sqlite").fallbackToDestructiveMigration().build()
 
     fun provideOkHttp() = OkHttpClient.Builder().build()
 
@@ -181,11 +156,4 @@ class MainActivity : AppCompatActivity() {
         Retrofit.Builder().client(provideOkHttp()).baseUrl("http://www.africau.edu").build()
 
     fun provideAPI() = provideRetrofit().create(Repository::class.java)
-}
-
-class PortraitActivity() : CaptureActivity() {
-    override fun initializeContent(): DecoratedBarcodeView? {
-        setContentView(R.layout.activity_portrait)
-        return findViewById<View>(R.id.zxing_barcode_scanner) as DecoratedBarcodeView
-    }
 }
